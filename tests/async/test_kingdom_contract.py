@@ -886,6 +886,58 @@ def test_pending_write_rule_is_obeyed_by_every_call_site() -> None:
     )
 
 
+def test_node_population_is_one_random_mix_per_region() -> None:
+    """A region keeps ONE population of any resource, not a quota per
+    resource, and every replacement rolls its own kind.
+
+    The first live test found the world over-filled -- 225 nodes standing at
+    once -- and the mix deterministic, because each region kept a separate
+    target for each of the four resources. Two regions now carry a single
+    total each, and the refill picks the resource at random, so a worked-out
+    node comes back as a random kind in a random room rather than as the same
+    kind moved. The Tharnadia Rift is not a region at all."""
+    harvest = read("src/kingdom/kingdom_harvest.c")
+    code = strip_comments(harvest)
+
+    table = re.search(
+        r"kingdom_node_regions\[\]\s*=\s*\{(.*?)\n\};", code, re.S
+    )
+    check(table is not None, "the node region table is found")
+    if table:
+        rows = re.findall(
+            r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(true|false)\s*,'
+            r'\s*"([^"]+)"\s*,\s*(\d+)\s*\}',
+            table.group(1),
+        )
+        check(
+            len(rows) == 2,
+            "exactly two node regions, each with ONE total (not a quota per resource)",
+            f"rows parsed: {rows}",
+        )
+        names = [r[0] for r in rows]
+        check(
+            not any("Tharn" in n for n in names),
+            "the Tharnadia Rift is not a node region",
+            f"regions: {names}",
+        )
+        totals = {r[0]: int(r[5]) for r in rows}
+        check(
+            totals.get("Surface Map") == 40 and totals.get("Underdark") == 30,
+            "the surface keeps 40 nodes and the Underdark 30, of all kinds together",
+            f"totals: {totals}",
+        )
+
+    refill = function_bodies(harvest, r"\bstatic\s+void\s+kingdom_nodes_reload\s*\(")
+    check(len(refill) == 1, "kingdom_nodes_reload is defined once")
+    if refill:
+        check(
+            re.search(r"kingdom_load_one_node\s*\(\s*region\s*,\s*number\s*\(", refill[0])
+            is not None,
+            "each replacement rolls its own resource, so the standing mix is random",
+            "the refill does not pass a rolled resource to kingdom_load_one_node()",
+        )
+
+
 def test_a_room_outside_the_grid_has_no_square() -> None:
     """kingdom_square_of_room() must REFUSE a room whose offset lies past the
     end of its zone's grid, not fold it back with a modulo.
