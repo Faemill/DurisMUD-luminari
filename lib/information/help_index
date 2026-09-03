@@ -8662,10 +8662,11 @@ KINGDOM (General Information)
 ===========================================================================
 Syntax:         kingdom <subcommand>
 
-Kingdoms are an OPTIONAL system and they are switched OFF by default. Where
-they have not been enabled every 'kingdom' subcommand refuses politely, no
-upkeep is charged, and guildhall building behaves exactly as it always did.
-Nothing below applies until an implementor turns them on.
+Kingdoms are an OPTIONAL system that an implementor may switch off entirely.
+Where they have been turned off every 'kingdom' subcommand refuses politely,
+no upkeep is charged, no harvest nodes load, and guildhall building behaves
+exactly as it always did - so if the command below tells you kingdoms are not
+running here, nothing else in this entry applies.
 
 A guild that has raised a main guildhall may convert to a KINGDOM: a guild
 that holds land on the overhead map. The hall's own square becomes the seat

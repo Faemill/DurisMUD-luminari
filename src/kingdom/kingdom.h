@@ -84,10 +84,10 @@ bool kingdom_char_owns_room(struct char_data *ch, int rnum);
  * holds no realm.
  *
  * That false case is the entire feature gate for the society display. The call
- * site in Guild::display() guards nothing itself: on a server running the
- * shipped lib/kingdom.cfg (kingdom.enabled = 0), or for any guild that has not
- * converted, this writes not one byte, so `soc` output stays byte-identical to
- * what it printed before this module existed. */
+ * site in Guild::display() guards nothing itself: wherever kingdoms are
+ * switched off in lib/kingdom.cfg, and for any guild that has not converted,
+ * this writes not one byte, so `soc` output is byte-identical to what it
+ * printed before this module existed. */
 bool kingdom_guild_society_lines(int assoc_id, char *out, size_t out_len);
 
 /* One line for the map legend / room description, or NULL when the square is
