@@ -29,6 +29,7 @@
 #include "core/defines.h"
 #include "world/epic.h"
 #include "world/epic_transaction.h"
+#include "world/epic_bank.h"
 #include "combat/justice.h"
 #include "core/mm.h"
 #include "item/objmisc.h"
@@ -777,7 +778,7 @@ void do_spellbind(P_char ch, char *argument, int /*cmd*/)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive, spellbind_committed,
 				     &context, sizeof(context)))
-		send_to_char("The epic transaction service is busy. Please try again.\n", ch);
+		epic_report_spend_failure(ch);
 	return;
 
 	if (!number(0, 2) && !IS_TRUSTED(ch))

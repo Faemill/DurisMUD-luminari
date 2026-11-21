@@ -348,12 +348,15 @@ bank level travels in `combat_outcome_participant::epic_converted`, which is nev
 encoded, and is paid when the outcome commits. Epic potions wait for the bank level;
 unspecialize and unmulti waive their epic fee below it.
 
-Nobody below the bank level holds epic points. `epic_forfeit_below_bank()` debits the
-whole balance through the epic ledger (reason `bank_level_forfeit`) when
-`lose_level_impl()` takes a character below the bank level (a death that costs level 56),
-and at login in `nanny.c`, which clears balances left from before the bank level and any
-debit that could not be queued. Immortals are exempt; CHAOS characters are raised to 56
-before the login check runs.
+A character below the bank level keeps its epic points, frozen: it can't spend
+them until it is back at the bank level (owner's call, 21 Nov 2026; the reform
+first forfeited them). `epic_transaction_submit_identified()` refuses a debit
+whose reason `epic_reason_is_spend()` and `epic_level_can_spend()` is false for,
+and each spend site reports it with `epic_report_spend_failure()`.
+`epic_notify_frozen()` tells the player at the level loss and at login, and
+`score` marks a frozen balance. Awards, refunds, admin adjustments and a stone's
+level purchase are not spends. `bank_level_forfeit` is no longer written. Immortals are
+exempt; CHAOS characters are raised to 56 before the login notice runs.
 
 `epic.skills.minLevel` (default 56) is the lowest level at which an epic teacher will
 teach. A purchase costs `epic.skill.costMultiplier` (5) x the skill's base cost x the

@@ -22,6 +22,7 @@ using namespace std;
 #include "core/defines.h"
 #include "world/epic.h"
 #include "world/epic_transaction.h"
+#include "world/epic_bank.h"
 #include "economy/nexus_stones.h"
 #include "persistence/persistence_checkpoint.h"
 #include "combat/racewar_stat_mods.h"
@@ -1282,7 +1283,7 @@ int nexus_sage_train(P_char ch, P_char pl, char * /*arg*/)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive, nexus_training_committed,
 				     &context, sizeof(context)))
-		send_to_char("The epic transaction service is busy. Please try again.\n", pl);
+		epic_report_spend_failure(pl);
 
 	return TRUE;
 }

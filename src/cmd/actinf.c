@@ -6381,6 +6381,12 @@ void do_score(P_char ch, char * /*argument*/, int /*cmd*/)
 					 afp2 ? afp2->modifier : 0);
 			}
 			send_to_char(buf, ch);
+			if (ch->only.pc->epics > 0 && !epic_level_can_spend(ch))
+				send_to_char_f(
+					ch,
+					"&nYour epic points are &+cfrozen&n: kept, but not spendable "
+					"until level %d.\n",
+					epic_bank_min_level());
 		}
 	}
 	else
@@ -10303,7 +10309,7 @@ void unmulti(P_char ch, P_obj obj)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive, unmulti_committed,
 				     nullptr, 0))
-		send_to_char("The epic transaction service is busy. Please try again.\n", ch);
+		epic_report_spend_failure(ch);
 }
 
 // Making ships visible 24-7 to dayblind/nightblind.

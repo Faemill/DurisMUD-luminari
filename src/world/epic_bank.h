@@ -3,6 +3,7 @@
 
 #include "core/structs.h"
 #include "persistence/critical_command.h"
+#include "world/epic_command.h"
 
 /*
  * Epic points are banked only from epic.bank.minLevel (default 56). From
@@ -30,13 +31,37 @@ int epic_conversion_exp_per_epic(int level);
 void epic_pay_converted_award(P_char ch, int type, int data, int amount);
 
 /**
- * Epic points are never held below the bank level. A character below it with a
- * balance -- one who lost level 56 to a death, or is found holding points at login --
- * forfeits the whole balance through the epic ledger (reason bank_level_forfeit).
- * Does nothing for an immortal, a character at or above the bank level, or an empty
- * balance. A debit that cannot be queued is retried at the next login.
+ * Epic points are spent only from the bank level. A character below it -- one who
+ * lost level 56 to a death, or who held points from before the reform -- keeps its
+ * balance, frozen: nothing it buys with epic points goes through until it is back at
+ * the bank level (owner's call, 21 Nov 2026; this replaced forfeiting the balance).
+ * True for an immortal and for a character at or above the bank level.
  */
-void epic_forfeit_below_bank(P_char ch, critical_source_site site);
+bool epic_level_can_spend(P_char ch);
+
+/**
+ * True for the ledger reasons that spend a player's points on something: store and
+ * nexus purchases, tradeskill resets, specialization and ascend/descend fees, epic
+ * skills and ship hulls. Not awards, refunds, admin adjustments or a stone's level
+ * purchase (epic.forLevel is 0 for 51-56 with the reform, and a non-zero price must
+ * not leave a character unable to level).
+ */
+bool epic_reason_is_spend(epic_reason_type reason);
+
+/**
+ * Tells a character below the bank level that its balance is frozen: at the level
+ * loss that takes it below (site combat or command) and at login. The balance is not
+ * touched. Does nothing for an immortal, at or above the bank level, or with no
+ * points.
+ */
+void epic_notify_frozen(P_char ch, critical_source_site site);
+
+/**
+ * The message for an epic purchase that could not be queued: the frozen-balance
+ * notice when the character is below the bank level (the ledger refuses the spend),
+ * else the usual "service is busy".
+ */
+void epic_report_spend_failure(P_char ch);
 
 /** The epic skill price multiplier, epic.skill.costMultiplier (default 5). */
 int epic_skill_cost_multiplier();

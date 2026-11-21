@@ -218,64 +218,118 @@ def test_epic_potions_respecs_and_skill_prices_follow_the_bank_level() -> None:
     assert "points_cost*3" not in refund
 
 
-def test_no_character_below_the_bank_level_keeps_epic_points() -> None:
-    forfeit = _definition("world/epic.c", "void epic_forfeit_below_bank(P_char ch, critical_source_site site)")
-    _compile_and_run(r'''
+def test_below_the_bank_level_epic_points_are_kept_but_frozen() -> None:
+    # Owner's call, 21 Nov 2026: losing level 56 keeps the epic points, but they
+    # can't be spent until the character is back at 56 (this replaced forfeiting them).
+    helpers = "\n".join(_definition("world/epic.c", signature) for signature in (
+        "bool epic_level_can_spend(P_char ch)",
+        "bool epic_reason_is_spend(epic_reason_type reason)",
+        "void epic_notify_frozen(P_char ch, critical_source_site site)",
+        "void epic_report_spend_failure(P_char ch)",
+    ))
+    _compile_and_run(r"""
 #include "core/prototypes.h"
 #include "core/utils.h"
 #include "world/epic_bank.h"
-#include "world/epic_transaction.h"
+#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-struct epic_forfeit_context { int64_t amount; int level; };
-static void epic_forfeit_committed(P_char, bool, const epic_command_result &, unsigned int,
-                                   const uint8_t *, size_t) {}
+#include <string>
+static std::string said;
+static int logged = 0;
+int epic_bank_min_level() { return 56; }
 bool epic_level_can_bank(P_char ch) { return GET_LEVEL(ch) >= 56; }
-void logit(const char *, const char *, ...) {}
-static int submits = 0;
-static int64_t last_delta = 0;
-static epic_reason_type last_reason = epic_reason_type::unknown;
-bool epic_transaction_submit(P_char, int64_t delta, epic_reason_type reason, int64_t, uint16_t flags,
-                             critical_source_site site, critical_deadline_class, epic_completion_fn,
-                             const void *context, size_t size) {
-    if (flags != EPIC_COMMAND_REQUIRE_FUNDS || site != critical_source_site::combat ||
-        size != sizeof(epic_forfeit_context) || static_cast<const epic_forfeit_context *>(context)->amount != -delta)
-        std::abort();
-    ++submits; last_delta = delta; last_reason = reason;
-    return true;
+void send_to_char(const char *text, P_char) { said = text; }
+void send_to_char_f(P_char, const char *format, ...) {
+    char buf[512];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+    said = buf;
 }
-''' + forfeit + r'''
-static void check(int level, int64_t epics, bool expect_forfeit) {
-    char_data ch{};
-    pc_only_data pc{};
+void epiclog(int, const char *, ...) { ++logged; }
+""" + helpers + r"""
+static void character(char_data &ch, pc_only_data &pc, int level, int64_t epics) {
+    ch = char_data{};
+    pc = pc_only_data{};
     ch.only.pc = &pc;
     ch.player.level = level;
     pc.epics = epics;
-    const int before = submits;
-    epic_forfeit_below_bank(&ch, critical_source_site::combat);
-    if ((submits - before) != (expect_forfeit ? 1 : 0)) std::abort();
-    if (expect_forfeit && (last_delta != -epics || last_reason != epic_reason_type::bank_level_forfeit))
-        std::abort();
 }
 int main() {
-    check(55, 12500, true);    // lost level 56: the whole balance goes
-    check(50, 1, true);        // any balance below the bank level goes
-    check(56, 12500, false);   // at the bank level points are kept
-    check(55, 0, false);       // nothing to forfeit
-    check(58, 900, false);     // immortals are exempt
-    epic_forfeit_below_bank(nullptr, critical_source_site::combat);
-    std::puts("bank-level forfeit: below 56 loses everything, 56 and immortals keep, empty skipped");
+    char_data ch{};
+    pc_only_data pc{};
+    // Who can spend: 56 and up, and immortals; not a mortal below 56.
+    character(ch, pc, 55, 12500);
+    if (epic_level_can_spend(&ch)) return 1;
+    character(ch, pc, 56, 12500);
+    if (!epic_level_can_spend(&ch)) return 2;
+    character(ch, pc, 58, 900);
+    if (!epic_level_can_spend(&ch)) return 3;
+    if (!epic_level_can_spend(nullptr)) return 4;
+    // What counts as spending: purchases and fees, not awards, refunds or admin work.
+    for (epic_reason_type r : { epic_reason_type::store_purchase, epic_reason_type::tradeskill_reset,
+                                epic_reason_type::specialization_purchase,
+                                epic_reason_type::epic_skill_purchase,
+                                epic_reason_type::ascend_descend, epic_reason_type::ship_purchase })
+        if (!epic_reason_is_spend(r)) return 5;
+    for (epic_reason_type r : { epic_reason_type::epic_skill_refund, epic_reason_type::level_purchase,
+                                epic_reason_type::admin_adjustment, epic_reason_type::nexus_award,
+                                epic_reason_type::bank_level_forfeit, epic_reason_type::unknown })
+        if (epic_reason_is_spend(r)) return 6;
+    // The notice: the balance is untouched; only a level loss is logged.
+    character(ch, pc, 55, 12500);
+    said.clear();
+    epic_notify_frozen(&ch, critical_source_site::combat);
+    if (pc.epics != 12500 || said.find("12500 epic points are frozen") == std::string::npos ||
+        said.find("level 56") == std::string::npos || logged != 1)
+        return 7;
+    epic_notify_frozen(&ch, critical_source_site::login);
+    if (pc.epics != 12500 || logged != 1) return 8;
+    character(ch, pc, 56, 12500);
+    said.clear();
+    epic_notify_frozen(&ch, critical_source_site::combat);
+    if (!said.empty()) return 9;
+    character(ch, pc, 55, 0);
+    epic_notify_frozen(&ch, critical_source_site::combat);
+    if (!said.empty()) return 10;
+    epic_notify_frozen(nullptr, critical_source_site::combat);
+    // A refused purchase says why.
+    character(ch, pc, 55, 12500);
+    epic_report_spend_failure(&ch);
+    if (said.find("frozen until you reach level 56") == std::string::npos) return 11;
+    character(ch, pc, 56, 12500);
+    epic_report_spend_failure(&ch);
+    if (said.find("busy") == std::string::npos) return 12;
+    std::puts("bank level: below 56 the points are kept and frozen; 56 and immortals spend");
     return 0;
 }
-''')
+""")
+    # The ledger refuses a spend below the bank level, before queuing anything.
+    submit = _flat(_definition("world/epic_transaction.c", "bool epic_transaction_submit_identified("))
+    gate = "if(delta<0&&epic_reason_is_spend(reason)&&!epic_level_can_spend(character))returnfalse;"
+    assert gate in submit
+    assert submit.index(gate) < submit.index("critical_command_coordinator_submit(")
+    # Nothing forfeits any more: the level loss and login only tell the player.
     lose = _flat(_definition("world/limits.c", "static void lose_level_impl("))
     assert ("if(previous_level>=epic_bank_min_level()&&GET_LEVEL(ch)<epic_bank_min_level())"
-            "epic_forfeit_below_bank(ch,") in lose
-    assert lose.index("ch->player.level=MAX(1,ch->player.level-1);") < lose.index("epic_forfeit_below_bank(")
+            "epic_notify_frozen(ch,") in lose
+    assert lose.index("ch->player.level=MAX(1,ch->player.level-1);") < lose.index("epic_notify_frozen(")
     nanny = _flat(source("account/nanny.c").read_text())
     ready = nanny.index("epic_transaction_player_ready(ch);")
-    assert ready < nanny.index("epic_forfeit_below_bank(ch,critical_source_site::login);", ready)
+    assert ready < nanny.index("epic_notify_frozen(ch,critical_source_site::login);", ready)
     assert nanny.index("advance_to_level(ch,56);") < ready, "CHAOS characters reach 56 first"
+    for name in ("world/epic.c", "world/limits.c", "account/nanny.c"):
+        assert "epic_forfeit_below_bank" not in source(name).read_text(), name
+    # Every spend site reports a refusal through epic_report_spend_failure().
+    for name, count in (("classes/epic_skills.c", 1), ("classes/salchemist.c", 1),
+                        ("classes/specializations.c", 1), ("cmd/actinf.c", 1),
+                        ("cmd/actoth.c", 3), ("economy/nexus_stones.c", 1),
+                        ("economy/tradeskill.c", 2), ("ships/ship_shop.c", 1)):
+        assert source(name).read_text().count("epic_report_spend_failure(") == count, name
+    # score shows a frozen balance.
+    assert "epic_level_can_spend(ch)" in _flat(source("cmd/actinf.c").read_text())
     codec = source("world/epic_command.c").read_text()
     assert "reason <= epic_reason_type::bank_level_forfeit;" in codec
 

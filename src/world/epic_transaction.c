@@ -1,6 +1,7 @@
 #include "world/epic_transaction.h"
 
 #include "world/epic.h"
+#include "world/epic_bank.h"
 #include "core/prototypes.h"
 #include "core/utils.h"
 
@@ -98,6 +99,10 @@ bool epic_transaction_submit_identified(P_char character, const critical_operati
 	if (!character || IS_NPC(character) || GET_PID(character) <= 0 || !delta ||
 	    context_size > EPIC_PENDING_CONTEXT_MAX_BYTES || (context_size && !context) ||
 	    pending.size() >= EPIC_PENDING_MAX || critical_operation_id_is_zero(operation_id))
+		return false;
+	// Below the bank level the balance is kept but frozen: nothing is bought with it
+	// (world/epic_bank.h). Callers report it with epic_report_spend_failure().
+	if (delta < 0 && epic_reason_is_spend(reason) && !epic_level_can_spend(character))
 		return false;
 	critical_command command = {};
 	if (!epic_command_build(&command, operation_id,

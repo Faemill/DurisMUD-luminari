@@ -80,6 +80,7 @@
 #include "world/epic_bonus.h"
 #include "classes/epic_skills.h"
 #include "world/epic_transaction.h"
+#include "world/epic_bank.h"
 #include "world/map.h"
 #include "economy/nexus_stones.h"
 #include "ships/ships.h"
@@ -249,7 +250,7 @@ bool submit_ship_hull_purchase(P_char ch, const ship_hull_purchase_context &cont
 				    critical_deadline_class::interactive,
 				    ship_hull_purchase_committed, &context, sizeof(context)))
 		return true;
-	send_to_char("The epic transaction service is busy. Please try again.\n", ch);
+	epic_report_spend_failure(ch);
 	return false;
 }
 } // namespace

@@ -28,6 +28,7 @@
 #include "combat/arenadef.h"
 #include "guild/assocs.h"
 #include "world/epic_transaction.h"
+#include "world/epic_bank.h"
 #include "guild/guildhall.h"
 #include "combat/justice.h"
 #include "world/map.h"
@@ -117,7 +118,7 @@ bool submit_epic_store_purchase(P_char pl, int object_vnum, int cost, bool fores
 				    critical_deadline_class::interactive, epic_store_committed,
 				    &context, sizeof(context)))
 		return true;
-	send_to_char("The epic transaction service is busy. Please try again.\n", pl);
+	epic_report_spend_failure(pl);
 	return false;
 }
 
@@ -1577,9 +1578,7 @@ int learn_tradeskill(P_char ch, P_char pl, int cmd, char *arg)
 						     critical_source_site::command,
 						     critical_deadline_class::interactive,
 						     tradeskill_reset_committed, nullptr, 0))
-				send_to_char(
-					"The epic transaction service is busy. Please try again.\n",
-					pl);
+				epic_report_spend_failure(pl);
 
 			return TRUE;
 		}

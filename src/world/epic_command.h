@@ -33,7 +33,8 @@ enum class epic_reason_type : uint16_t
 	ship_purchase,
 	admin_adjustment,
 	chaos_starter_reward,
-	bank_level_forfeit, // a character below epic.bank.minLevel loses its whole balance
+	bank_level_forfeit, // retired (balances below the bank level are frozen, not
+	// forfeited); kept so the codec bound and any rows stay valid
 };
 
 enum epic_command_flag : uint16_t

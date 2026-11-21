@@ -9,6 +9,7 @@
 #include "classes/epic_skills.h"
 #include "world/epic.h"
 #include "world/epic_transaction.h"
+#include "world/epic_bank.h"
 #include "net/gmcp.h"
 #include <algorithm>
 #include <cassert>
@@ -91,6 +92,15 @@ bool do_save_silent(P_char ch, int)
 	refreshed_at_save = refreshes;
 	++saves;
 	return true;
+}
+// epic_transaction.c's bank-level spend gate (world/epic.c); the pupil can spend.
+bool epic_level_can_spend(P_char)
+{
+	return true;
+}
+bool epic_reason_is_spend(epic_reason_type)
+{
+	return false;
 }
 void CharWait(P_char ch, int)
 {

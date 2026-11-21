@@ -775,7 +775,6 @@ void unspecialize(P_char ch, P_obj obj)
 					     critical_source_site::command,
 					     critical_deadline_class::interactive,
 					     unspecialize_committed, nullptr, 0))
-			send_to_char("The epic transaction service is busy. Please try again.\n",
-				     ch);
+			epic_report_spend_failure(ch);
 	}
 }

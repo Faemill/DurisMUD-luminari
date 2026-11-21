@@ -708,50 +708,53 @@ void epic_pay_converted_award(P_char ch, int type, int data, int amount)
 	epic_award_converted(ch, context);
 }
 
-namespace
+bool epic_level_can_spend(P_char ch)
 {
-struct epic_forfeit_context
-{
-	int64_t amount;
-	int level;
-};
-
-void epic_forfeit_committed(P_char ch, bool committed, const epic_command_result &, unsigned int,
-			    const uint8_t *raw_context, size_t context_size)
-{
-	if (!ch || context_size != sizeof(epic_forfeit_context))
-		return;
-	epic_forfeit_context context = {};
-	memcpy(&context, raw_context, sizeof(context));
-	if (!committed)
-	{
-		// The balance stays until the next login tries again.
-		logit(LOG_DEBUG,
-		      "epic_forfeit: component=bank_level outcome=deferred actor=redacted");
-		return;
-	}
-	send_to_char_f(ch,
-		       "&+rYour %lld epic point%s fade away: epic points are kept only from level "
-		       "%d.&n\r\n",
-		       static_cast<long long>(context.amount), context.amount == 1 ? "" : "s",
-		       epic_bank_min_level());
-	epiclog(56, "%s forfeited %lld epic points at level %d, below the bank level",
-		ch->player.name, static_cast<long long>(context.amount), context.level);
+	return !ch || !IS_PC(ch) || IS_TRUSTED(ch) || epic_level_can_bank(ch);
 }
-} // namespace
 
-void epic_forfeit_below_bank(P_char ch, critical_source_site site)
+bool epic_reason_is_spend(epic_reason_type reason)
 {
-	if (!ch || !IS_PC(ch) || IS_TRUSTED(ch) || epic_level_can_bank(ch) ||
-	    ch->only.pc->epics <= 0)
+	switch (reason)
+	{
+	case epic_reason_type::store_purchase:
+	case epic_reason_type::tradeskill_reset:
+	case epic_reason_type::specialization_purchase:
+	case epic_reason_type::epic_skill_purchase:
+	case epic_reason_type::ascend_descend:
+	case epic_reason_type::ship_purchase:
+		return true;
+	default:
+		return false;
+	}
+}
+
+// Losing level 56 keeps the epic points, frozen until the character is back at
+// the bank level (owner's call, 21 Nov 2026). The ledger refuses their spending
+// (epic_transaction_submit_identified); this only says so.
+void epic_notify_frozen(P_char ch, critical_source_site site)
+{
+	if (!ch || !IS_PC(ch) || epic_level_can_spend(ch) || ch->only.pc->epics <= 0)
 		return;
-	const epic_forfeit_context context = { ch->only.pc->epics, GET_LEVEL(ch) };
-	if (!epic_transaction_submit(ch, -context.amount, epic_reason_type::bank_level_forfeit,
-				     GET_LEVEL(ch), EPIC_COMMAND_REQUIRE_FUNDS, site,
-				     critical_deadline_class::interactive, epic_forfeit_committed,
-				     &context, sizeof(context)))
-		logit(LOG_FILE,
-		      "epic_forfeit: component=bank_level outcome=unavailable actor=redacted");
+	const long long amount = static_cast<long long>(ch->only.pc->epics);
+	send_to_char_f(ch,
+		       "&+cYour %lld epic point%s are frozen: you keep them, but they can't be "
+		       "spent until you reach level %d again.&n\r\n",
+		       amount, amount == 1 ? "" : "s", epic_bank_min_level());
+	if (site != critical_source_site::login)
+		epiclog(56, "%s keeps %lld frozen epic points at level %d, below the bank level",
+			ch->player.name, amount, GET_LEVEL(ch));
+}
+
+void epic_report_spend_failure(P_char ch)
+{
+	if (!ch)
+		return;
+	if (!epic_level_can_spend(ch))
+		send_to_char_f(ch, "Your epic points are frozen until you reach level %d again.\n",
+			       epic_bank_min_level());
+	else
+		send_to_char("The epic transaction service is busy. Please try again.\n", ch);
 }
 
 static bool prepare_epic_award(P_char ch, int type, int data, int amount, bool completing_task,

@@ -847,12 +847,12 @@ static void lose_level_impl(P_char ch, std::uint64_t threshold_xp,
 
 	balance_affects(ch);
 
-	// Epic points are kept only from epic.bank.minLevel: the loss that takes a character
-	// below it forfeits them (once; the login check catches anything left over).
+	// Epic points are spent only from epic.bank.minLevel: the loss that takes a
+	// character below it freezes them (kept, not spendable until it is back there).
 	if (previous_level >= epic_bank_min_level() && GET_LEVEL(ch) < epic_bank_min_level())
-		epic_forfeit_below_bank(ch, source == telemetry_progression_source::death ?
-						    critical_source_site::combat :
-						    critical_source_site::command);
+		epic_notify_frozen(ch, source == telemetry_progression_source::death ?
+					       critical_source_site::combat :
+					       critical_source_site::command);
 
 	// Send GMCP update for level change
 	gmcp_char_status(ch);

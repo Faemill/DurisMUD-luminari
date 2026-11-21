@@ -7389,7 +7389,7 @@ void ascend_theurgist(P_char ch)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive, ascend_committed,
 				     &context, sizeof(context)))
-		send_to_char("The epic transaction service is busy. Please try again.\n", ch);
+		epic_report_spend_failure(ch);
 }
 
 void do_ascend(P_char ch, char * /*arg*/, int /*cmd*/)
@@ -7451,8 +7451,7 @@ void do_ascend(P_char ch, char * /*arg*/, int /*cmd*/)
 					     critical_source_site::command,
 					     critical_deadline_class::interactive, ascend_committed,
 					     &context, sizeof(context)))
-			send_to_char("The epic transaction service is busy. Please try again.\n",
-				     ch);
+			epic_report_spend_failure(ch);
 		return;
 	}
 
@@ -7478,7 +7477,7 @@ void do_ascend(P_char ch, char * /*arg*/, int /*cmd*/)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive, ascend_committed,
 				     &context, sizeof(context)))
-		send_to_char("The epic transaction service is busy. Please try again.\n", ch);
+		epic_report_spend_failure(ch);
 }
 
 void do_descend(P_char ch, char * /*arg*/, int /*cmd*/)

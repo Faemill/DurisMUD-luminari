@@ -1836,9 +1836,8 @@ void enter_game(P_desc d)
 		schedule_chaos_starting_bank(ch);
 	}
 	epic_transaction_player_ready(ch);
-	// Nobody below epic.bank.minLevel holds epic points; a balance found here (from before
-	// the bank level, or a debit that could not be queued) is forfeited now.
-	epic_forfeit_below_bank(ch, critical_source_site::login);
+	// Below epic.bank.minLevel a balance is kept but frozen; say so at login.
+	epic_notify_frozen(ch, critical_source_site::login);
 	zone_touch_transaction_player_ready(ch);
 	currency_transaction_player_ready(ch);
 	locker_identify_replay(ch);

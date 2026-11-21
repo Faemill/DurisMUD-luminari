@@ -654,7 +654,7 @@ int epic_teacher(P_char ch, P_char pl, int cmd, char *arg)
 				     EPIC_COMMAND_REQUIRE_FUNDS, critical_source_site::command,
 				     critical_deadline_class::interactive,
 				     epic_skill_purchase_committed, &context, sizeof(context)))
-		send_to_char("The epic transaction service is busy. Please try again.\n", pl);
+		epic_report_spend_failure(pl);
 	return TRUE;
 }
 
